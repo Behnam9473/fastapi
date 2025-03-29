@@ -1,0 +1,50 @@
+# Python virtual environment
+fekrooneenv/
+fekrooneenv\
+venv/
+ENV/
+
+# Python compiled files
+*.py[cod]
+__pycache__/
+*.so
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Environment variables
+.env
+.env.local
+
+# Local development settings
+*.sqlite3
+*.db
+
+# Logs
+*.log
+logs/
+
+# Test coverage
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Media files
+media/

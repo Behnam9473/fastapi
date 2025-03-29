@@ -1,0 +1,98 @@
+services:
+  app:
+    build:
+      context: .
+    command: uvicorn main:app --host=0.0.0.0 --port=8001 --reload
+    ports:
+      - "8001:8001"
+    volumes:
+      - .:/app
+      - media:/app/media
+      - ./data:/app/data
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fekrooneh
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      SECRET_KEY: "your-secret-key"
+      ALGORITHM: "HS256"
+      ACCESS_TOKEN_EXPIRE_MINUTES: 30
+    networks:
+      - app-net
+
+  celery_worker:
+    build:
+      context: .
+    command: celery -A services.schedulers.celery_app worker --loglevel=info
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+    depends_on:
+      - redis
+    networks:
+      - app-net
+
+  celery_beat:
+    build:
+      context: .
+    command: celery -A services.schedulers.celery_app beat --loglevel=info
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+    depends_on:
+      - redis
+    networks:
+      - app-net
+
+  redis:
+    image: "redis:alpine"
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - app-net
+
+  postgres:
+    image: postgres:latest
+    container_name: postgres
+    environment:
+      POSTGRES_DB: fekrooneh
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-net
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - app-net
+
+volumes:
+  media:
+  redis_data:
+  postgres_data: 
+networks:
+  app-net:
+    driver: bridge

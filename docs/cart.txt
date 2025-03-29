@@ -1,0 +1,21 @@
+fastapi-cart/
+│
+├── models/                  # Pydantic models and database schema
+│   ├── __init__.py
+│   ├── commands.py          # Command models
+│   ├── events.py            # Event models
+│   ├── read_models.py       # Read models
+│   └── cart_table.py        # Cart table (SQLAlchemy model)
+│
+├── services/                # Business logic
+│   ├── __init__.py
+│   ├── event_store.py       # Event store implementation
+│   ├── command_handler.py   # Command handler
+│   └── read_model_projection.py  # Read model projection
+│
+├── api/                     # FastAPI endpoints
+│   ├── __init__.py
+│   └── cart.py              # Cart-related endpoints
+│
+├── main.py                  # FastAPI app entry point
+└── requirements.txt         # Dependencies
