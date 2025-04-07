@@ -6,8 +6,8 @@ from sqlalchemy.ext.declarative import DeclarativeMeta
 from abc import ABC, abstractmethod
 
 ModelType = TypeVar("ModelType", bound=DeclarativeMeta)
-udCreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
-UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaserModel)
+CreateSchemaType = TypeVar("CreateSchemaType", bound=BaseModel)
+UpdateSchemaType = TypeVar("UpdateSchemaType", bound=BaseModel)
 
 class Readable(Protocol, Generic[ModelType]):
     """Protocol defining read operations for a model.
