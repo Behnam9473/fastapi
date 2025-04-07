@@ -5,6 +5,25 @@ from datetime import datetime
 import pytz
 
 class ProductRating(Base):
+    """
+    Represents a product rating in the system.
+    
+    Attributes:
+        id (int): Primary key identifier for the rating.
+        customer_id (int): Foreign key to the customer who created the rating.
+        inventory_id (int): Foreign key to the inventory item being rated.
+        rating (float): Numeric rating value between 1 and 5.
+        comment (str, optional): Optional text comment about the rating.
+        created_at (DateTime): UTC timestamp when the rating was created.
+        updated_at (DateTime): UTC timestamp when the rating was last updated.
+        
+    Relationships:
+        customer: Reference to the Customer model (many-to-one).
+        inventory: Reference to the Inventory model (many-to-one).
+        
+    Constraints:
+        - Rating value must be between 1 and 5 (inclusive).
+    """
     __tablename__ = "product_ratings"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -23,4 +42,4 @@ class ProductRating(Base):
     __table_args__ = (
         CheckConstraint('rating >= 1 AND rating <= 5', name='check_rating_range'),
         {'extend_existing': True}
-    ) 
+    )

@@ -26,7 +26,23 @@ router = APIRouter(prefix="/store", tags=["Store"])
 @router.get("/wonders", response_model=WondersRead)
 async def get_all_wonders(db: Session = Depends(get_db), _ = Depends(rate_limit)):
     """
-    Retrieve all wonder items
+    Retrieve all wonder items (special offers/discounts)
+    
+    Returns:
+        List[dict]: A list of wonder items with their details including:
+            - id: Unique identifier for the wonder item
+            - inventory_id: Related inventory item ID
+            - tenant_id: Tenant/organization ID
+            - title: Display title of the wonder item
+            - description: Detailed description
+            - is_active: Whether the offer is currently active
+            - percent_off: Discount percentage (0-100)
+            - special_price: Special discounted price
+            - start_date: When the offer becomes active
+            - end_date: When the offer expires
+    
+    Raises:
+        HTTPException: 500 if any database error occurs
     """
     try:
         # Query for all wonder items
@@ -57,6 +73,18 @@ async def get_all_wonders(db: Session = Depends(get_db), _ = Depends(rate_limit)
 async def get_published_inventory(db: Session = Depends(get_db), _ = Depends(rate_limit)):
     """
     Retrieve all published inventory items
+    
+    Returns:
+        List[dict]: A list of published inventory items with:
+            - id: Unique inventory item ID
+            - seller_name: Name of the seller
+            - sale_price: Current selling price
+            - qty: Available quantity
+            - file: Associated file/image
+            - good_id: Related good ID
+    
+    Raises:
+        HTTPException: 500 if any database error occurs
     """
     try:
         # Query for published inventory items
@@ -89,7 +117,28 @@ async def get_inventory_by_good_id(
     _ = Depends(rate_limit),
 ):
     """
-    Retrieve inventory items by good_id and track visits.
+    Retrieve inventory items by good_id and track visits
+    
+    Args:
+        good_id (int): The ID of the good to retrieve inventory for
+        request (Request): FastAPI request object for getting client info
+        
+    Returns:
+        List[dict]: Inventory items with same good_id including:
+            - id: Inventory item ID
+            - seller_name: Seller name
+            - sale_price: Current price
+            - qty: Available quantity
+            - file: Associated file/image
+            - good_id: Good ID
+            - viewer_user_id: ID of authenticated viewer (if any)
+    
+    Notes:
+        - Tracks each visit to this endpoint for analytics
+        - Requires valid Authorization header for user tracking
+    
+    Raises:
+        HTTPException: 500 if any database error occurs
     """
     try:
         # Track the visit - extract token from authorization header
@@ -133,6 +182,21 @@ async def get_inventory_by_good_id(
 async def get_inventory_by_category(category_id: int, db: Session = Depends(get_db), _ = Depends(rate_limit)):
     """
     Retrieve inventory items by category ID
+    
+    Args:
+        category_id (int): The category ID to filter inventory by
+        
+    Returns:
+        List[dict]: Inventory items belonging to specified category with:
+            - id: Inventory item ID
+            - seller_name: Seller name
+            - sale_price: Current price
+            - qty: Available quantity
+            - file: Associated file/image
+            - good_id: Good ID
+    
+    Raises:
+        HTTPException: 500 if any database error occurs
     """
     try:
         # Query for inventory items where the associated good belongs to the specified category
@@ -162,6 +226,21 @@ async def get_inventory_by_category(category_id: int, db: Session = Depends(get_
 async def get_inventory_by_seller(seller_name: str, db: Session = Depends(get_db),_ = Depends(rate_limit)):
     """
     Retrieve inventory items by seller name
+    
+    Args:
+        seller_name (str): Exact name of the seller to filter by
+        
+    Returns:
+        List[dict]: Inventory items from specified seller with:
+            - id: Inventory item ID
+            - seller_name: Seller name
+            - sale_price: Current price
+            - qty: Available quantity
+            - file: Associated file/image
+            - good_id: Good ID
+    
+    Raises:
+        HTTPException: 500 if any database error occurs
     """
     try:
         # Query for inventory items by seller name
@@ -219,6 +298,26 @@ async def get_all_wonders(db: Session = Depends(get_db), _ = Depends(rate_limit)
 async def get_wonder_by_id(wonder_id: int, db: Session = Depends(get_db), _ = Depends(rate_limit)):
     """
     Retrieve a specific wonder item by ID
+    
+    Args:
+        wonder_id (int): The unique ID of the wonder item to retrieve
+        
+    Returns:
+        dict: Wonder item details including:
+            - id: Unique identifier
+            - inventory_id: Related inventory item ID
+            - tenant_id: Tenant/organization ID
+            - title: Display title
+            - description: Detailed description
+            - is_active: Whether active
+            - percent_off: Discount percentage
+            - special_price: Special price
+            - start_date: Activation date
+            - end_date: Expiration date
+    
+    Raises:
+        HTTPException: 404 if wonder not found
+        HTTPException: 500 if any database error occurs
     """
     try:
         query = select(Wonders).where(Wonders.id == wonder_id)

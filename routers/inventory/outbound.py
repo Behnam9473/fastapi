@@ -29,7 +29,21 @@ router = APIRouter(prefix="", tags=["Inventory"])
 
 
 def get_tenant_and_manager(current_user: dict, db: Session):
-    """Helper function to get tenant_id and manager based on user role"""
+    """
+    Retrieves tenant_id and manager information based on user role.
+
+    Args:
+        current_user (dict): Dictionary containing user information including role and user_id.
+        db (Session): SQLAlchemy database session.
+
+    Returns:
+        tuple: A tuple containing (manager, tenant_id) where:
+            - manager: Manager or Admin object from database
+            - tenant_id: The tenant/organization ID associated with the user
+
+    Raises:
+        HTTPException: If manager is not found for the given user.
+    """
     if current_user["role"] == "MANAGER":
         manager = db.query(Manager).filter(Manager.id == current_user["user_id"]).first()
         if not manager:
@@ -54,7 +68,23 @@ def create_outbound(
 ):
     """
     Creates a new Outbound record for a Good (reduces inventory).
-    Only MANAGER or ADMIN can create this record.
+
+    Args:
+        outbound_data (OutboundCreate): Outbound creation data including good_id, prices, and quantity.
+        db (Session): SQLAlchemy database session.
+        current_user (dict): Dictionary containing current user information including role.
+
+    Returns:
+        OutboundResponse: Response containing created outbound record details.
+
+    Raises:
+        HTTPException: 403 if user is not authorized, 400 if good/manager not found,
+                      404 if no matching inventory, 400 if insufficient quantity.
+
+    Notes:
+        - Only MANAGER, ADMIN or SUPERUSER can create this record.
+        - Reduces inventory quantity by specified amount.
+        - Deletes inventory record if quantity reaches zero.
     """
     if current_user["role"] not in ["MANAGER", "ADMIN", "SUPERUSER"]:
         raise HTTPException(status_code=403, detail="Not authorized to add outbound records.")

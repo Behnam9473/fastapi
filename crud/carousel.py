@@ -9,65 +9,53 @@ from models.carousel import CarouselImage
 from schemas.carousel import CarouselImageCreate, CarouselImageUpdate
 from sqlalchemy.orm import Session
 
-# async def save_image(image) -> Optional[str]:
-#     """Save category image from URL or local upload and return the saved path"""
-#     if not image:
-#         return None
-        
-#     # Create media/carousel directory if it doesn't exist
-#     save_path = Path("./media/carousel")
-#     save_path.mkdir(parents=True, exist_ok=True)
-    
-#     try:
-#         if isinstance(image, str):
-#             # Check if it's a URL
-#             if image.startswith(('http://', 'https://')):
-#                 response = requests.get(image)
-#                 response.raise_for_status()
-                
-#                 # Generate filename from URL
-#                 url_path = Path(image.split('?')[0])  # Remove query parameters
-#                 safe_name = url_path.name[:50] + ".jpg"  # Limit filename length
-#                 file_path = save_path / safe_name
-                
-#                 # Save the downloaded image
-#                 with open(file_path, 'wb') as f:
-#                     f.write(response.content)
-#                 return f"./media/carousel/{safe_name}"
-#             else:
-#                 # Handle local file path
-#                 source_path = Path(image)
-#                 safe_name = source_path.stem + ".jpg"
-#                 file_path = save_path / safe_name
-                
-#                 # Copy the image
-#                 with open(source_path, "rb") as src, open(file_path, "wb") as dst:
-#                     dst.write(src.read())
-#                 return f"./media/carousel/{safe_name}"
-#         else:
-#             # Handle uploaded file objects
-#             filename = image.filename
-#             safe_name = Path(filename).stem + ".jpg"
-#             file_path = save_path / safe_name
-            
-#             # Save the image
-#             with open(file_path, "wb") as f:
-#                 f.write(image.file.read())
-#             return f"./media/carousel/{safe_name}"
-            
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"Error saving image: {str(e)}")
 
-# 2. CRUD Class
 class CRUDCarousel(CRUDBase[CarouselImage, CarouselImageCreate, CarouselImageUpdate]):
+    """
+    CRUD operations for CarouselImage model.
+    
+    Provides basic CRUD operations as well as custom methods for managing carousel images.
+    Inherits from CRUDBase with CarouselImage model and related schemas.
+    """
     # Basic CRUD operations
     def get(self, db: Session, id: int) -> Optional[CarouselImage]:
+        """
+        Get a single carousel image by ID.
+        
+        Args:
+            db: SQLAlchemy Session
+            id: ID of the carousel image to retrieve
+            
+        Returns:
+            Optional[CarouselImage]: The carousel image if found, None otherwise
+        """
         return db.query(self.model).filter(self.model.id == id).first()
     
     def get_multi(self, db: Session, *, skip: int = 0, limit: int = 10) -> List[CarouselImage]:
+        """
+        Get multiple carousel images with pagination.
+        
+        Args:
+            db: SQLAlchemy Session
+            skip: Number of records to skip (default 0)
+            limit: Maximum number of records to return (default 10)
+            
+        Returns:
+            List[CarouselImage]: List of carousel images
+        """
         return db.query(self.model).offset(skip).limit(limit).all()
     
     def create(self, db: Session, image_data: CarouselImageCreate):
+        """
+        Create a new carousel image.
+        
+        Args:
+            db: SQLAlchemy Session
+            image_data: CarouselImageCreate schema with image data
+            
+        Returns:
+            The created CarouselImage instance
+        """
         db_image = CarouselImage(
             image=image_data.image,
             image_alternate_text=image_data.image_alternate_text,
@@ -83,6 +71,17 @@ class CRUDCarousel(CRUDBase[CarouselImage, CarouselImageCreate, CarouselImageUpd
         return db_image
     
     def update(self, db: Session, *, id: int, obj_in: CarouselImageUpdate) -> Optional[CarouselImage]:
+        """
+        Update a carousel image.
+        
+        Args:
+            db: SQLAlchemy Session
+            id: ID of the carousel image to update
+            obj_in: CarouselImageUpdate schema with updated data
+            
+        Returns:
+            Optional[CarouselImage]: The updated carousel image if found, None otherwise
+        """
         db_obj = self.get(db, id=id)
         if db_obj:
             update_data = obj_in.model_dump()
@@ -93,6 +92,18 @@ class CRUDCarousel(CRUDBase[CarouselImage, CarouselImageCreate, CarouselImageUpd
         return db_obj
     
     def delete(self, db: Session, *, id: int) -> Optional[CarouselImage]:
+        """
+        Delete a carousel image.
+        
+        Also deletes the associated image file from storage.
+        
+        Args:
+            db: SQLAlchemy Session
+            id: ID of the carousel image to delete
+            
+        Returns:
+            Optional[CarouselImage]: The deleted carousel image if found, None otherwise
+        """
         db_obj = self.get(db, id=id)
         if db_obj:
             self._delete_image_file(db_obj.image)
@@ -102,12 +113,31 @@ class CRUDCarousel(CRUDBase[CarouselImage, CarouselImageCreate, CarouselImageUpd
 
     # Custom query methods
     def get_by_image_path(self, db: Session, *, image_path: str) -> Optional[CarouselImage]:
+        """
+        Get a carousel image by its image path.
+        
+        Args:
+            db: SQLAlchemy Session
+            image_path: Path of the image to search for
+            
+        Returns:
+            Optional[CarouselImage]: The carousel image if found, None otherwise
+        """
         return db.query(CarouselImage).filter(CarouselImage.image == image_path).first()
     
 
 
     # Helper methods
     def _delete_image_file(self, image_path: str) -> None:
+        """
+        Delete the physical image file from storage.
+        
+        Args:
+            image_path: Path to the image file to delete
+            
+        Note:
+            This is an internal helper method and should not be called directly.
+        """
         path = Path(image_path)
         if path.exists():
             path.unlink()

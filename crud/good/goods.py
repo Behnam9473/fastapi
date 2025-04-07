@@ -1,3 +1,15 @@
+"""
+CRUD operations for Goods management.
+
+This module provides CRUD (Create, Read, Update, Delete) operations for Goods,
+including validation and relationship management with categories and colors.
+
+Key Features:
+- Create goods with validation for categories, colors and images
+- Paginated retrieval of goods
+- Filtering by category, color and tenant
+- Validation and status management for goods
+"""
 from typing import List, Optional
 from uuid import UUID
 from fastapi import HTTPException
@@ -9,22 +21,78 @@ from models.good.colors import Color
 from schemas.good.goods import GoodCreate, GoodUpdate
 # from services.save_images import save_images
 class CRUDGood(CRUDBase[Good, GoodCreate, GoodUpdate]):
+    """
+    CRUD operations for Goods with extended functionality.
+    
+    Inherits from CRUDBase and adds:
+    - Validation during creation and update
+    - Relationship management with categories and colors
+    - Status and validation workflows
+    """
+    
     def get(self, db: Session, id: int) -> Optional[Good]:
-        """Get a good by ID."""
+        """
+        Retrieve a single good by its ID.
+        
+        Args:
+            db: Database session
+            id: ID of the good to retrieve
+            
+        Returns:
+            Optional[Good]: The good object if found, None otherwise
+        """
         return db.query(self.model).filter(self.model.id == id).first()
     
     def get_multi(self, db: Session, *, skip: int = 0, limit: int = 10) -> List[Good]:
-        """Get multiple goods with pagination."""
+        """
+        Retrieve multiple goods with pagination.
+        
+        Args:
+            db: Database session
+            skip: Number of records to skip (for pagination)
+            limit: Maximum number of records to return
+            
+        Returns:
+            List[Good]: List of good objects
+        """
         return db.query(self.model).offset(skip).limit(limit).all()
     
     def create(self, db: Session, *, obj_in: GoodCreate, tenant_id: UUID) -> Good:
-        """Create a new good."""
+        """
+        Create a new good with validation.
+        
+        Args:
+            db: Database session
+            obj_in: Good creation schema
+            tenant_id: UUID of the tenant creating the good
+            
+        Returns:
+            Good: The newly created good
+            
+        Raises:
+            HTTPException: If validation fails for category, colors or images
+        """
         return self.validate_and_create(db=db, obj_in=obj_in, tenant_id=tenant_id)
         
     def validate_and_create(self, db: Session, *, obj_in: GoodCreate, tenant_id: UUID) -> Good:
         """
         Validate and create a new good with its relationships.
-        Includes validation for category, colors, and images.
+        
+        Performs comprehensive validation including:
+        - Category existence and hierarchy
+        - Color existence
+        - Image requirements
+        
+        Args:
+            db: Database session
+            obj_in: Good creation schema
+            tenant_id: UUID of the tenant creating the good
+            
+        Returns:
+            Good: The newly created good
+            
+        Raises:
+            HTTPException: If validation fails for category, colors or images
         """
         # Validate category and its hierarchy
         category = db.query(Category).filter(Category.id == obj_in.category_id).first()
@@ -71,7 +139,20 @@ class CRUDGood(CRUDBase[Good, GoodCreate, GoodUpdate]):
 
 
     def update(self, db: Session, *, id: int, obj_in: GoodUpdate) -> Optional[Good]:
-        """Update a good."""
+        """
+        Update an existing good with validation.
+        
+        Args:
+            db: Database session
+            id: ID of the good to update
+            obj_in: Good update schema
+            
+        Returns:
+            Optional[Good]: The updated good if found, None otherwise
+            
+        Raises:
+            HTTPException: If validation fails for category, colors or images
+        """
         db_obj = self.get(db, id=id)
         if not db_obj:
             return None
@@ -107,7 +188,16 @@ class CRUDGood(CRUDBase[Good, GoodCreate, GoodUpdate]):
         return db_obj
     
     def delete(self, db: Session, *, id: int) -> Optional[Good]:
-        """Delete a good."""
+        """
+        Delete a good by ID.
+        
+        Args:
+            db: Database session
+            id: ID of the good to delete
+            
+        Returns:
+            Optional[Good]: The deleted good if found, None otherwise
+        """
         db_obj = self.get(db, id=id)
         if db_obj:
             db.delete(db_obj)
@@ -118,7 +208,18 @@ class CRUDGood(CRUDBase[Good, GoodCreate, GoodUpdate]):
     def get_by_category(
         self, db: Session, *, category_id: int, skip: int = 0, limit: int = 100
     ) -> List[Good]:
-        """Get goods by category ID with pagination."""
+        """
+        Retrieve goods filtered by category ID with pagination.
+        
+        Args:
+            db: Database session
+            category_id: ID of the category to filter by
+            skip: Number of records to skip (for pagination)
+            limit: Maximum number of records to return
+            
+        Returns:
+            List[Good]: List of goods in the specified category
+        """
         return (
             db.query(self.model)
             .filter(self.model.category_id == category_id)
@@ -130,7 +231,18 @@ class CRUDGood(CRUDBase[Good, GoodCreate, GoodUpdate]):
     def get_by_color(
         self, db: Session, *, color_id: int, skip: int = 0, limit: int = 100
     ) -> List[Good]:
-        """Get goods by color ID with pagination."""
+        """
+        Retrieve goods filtered by color ID with pagination.
+        
+        Args:
+            db: Database session
+            color_id: ID of the color to filter by
+            skip: Number of records to skip (for pagination)
+            limit: Maximum number of records to return
+            
+        Returns:
+            List[Good]: List of goods with the specified color
+        """
         return (
             db.query(self.model)
             .filter(self.model.colors.any(id=color_id))
@@ -140,20 +252,54 @@ class CRUDGood(CRUDBase[Good, GoodCreate, GoodUpdate]):
         )
 
     def my_goods(self, db: Session, *, tenant_id: UUID) -> List[Good]:
-        """Get goods by tenant ID."""
+        """
+        Retrieve all goods belonging to a specific tenant.
+        
+        Args:
+            db: Database session
+            tenant_id: UUID of the tenant
+            
+        Returns:
+            List[Good]: List of goods belonging to the tenant
+        """
 
         return db.query(self.model).filter(self.model.tenant_id == tenant_id).all()
     
     def get_superuser_validated_goods(self, db: Session) -> List[Good]:
-        """Get all goods with superuser validation."""
+        """
+        Retrieve all goods that have been validated by a superuser.
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            List[Good]: List of validated goods
+        """
         return db.query(self.model).filter(self.model.is_validated == True).all()
     
     def get_pending_goods(self, db: Session) -> List[Good]:
-        """Get all goods with pending status."""
+        """
+        Retrieve all goods with 'pending' status.
+        
+        Args:
+            db: Database session
+            
+        Returns:
+            List[Good]: List of pending goods
+        """
         return db.query(self.model).filter(self.model.status == "pending").all()
     
     def validate(self, db: Session, *, id: int) -> Optional[Good]:
-        """Validate a good."""
+        """
+        Validate a good and generate its SKU if approved.
+        
+        Args:
+            db: Database session
+            id: ID of the good to validate
+            
+        Returns:
+            Optional[Good]: The validated good if found, None otherwise
+        """
         db_obj = self.get(db, id=id)
         if db_obj:
             db_obj.is_validated = True
@@ -167,7 +313,17 @@ class CRUDGood(CRUDBase[Good, GoodCreate, GoodUpdate]):
         return db_obj
     
     def invalidate(self, db: Session, *, id: int, superuser_description: str) -> Optional[Good]:
-        """Invalidate a good with superuser description."""
+        """
+        Invalidate a good with a superuser description.
+        
+        Args:
+            db: Database session
+            id: ID of the good to invalidate
+            superuser_description: Reason for invalidation
+            
+        Returns:
+            Optional[Good]: The invalidated good if found, None otherwise
+        """
         db_obj = self.get(db, id=id)
         if db_obj:
             db_obj.is_validated = False

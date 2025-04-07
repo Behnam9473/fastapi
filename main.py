@@ -9,16 +9,19 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
+from sqladmin import Admin, ModelView
+
 from routers import auth, carousel
 from routers.users import customers, managers, addresses
 from routers.good import goods, colors, category, ratings, attr
 from routers.inventory import inbound, outbound
 from routers.seller import wonders
-# from routers.ai_training import conversations
 from routers.order import cart
 from routers.store import store
 from routers.superusers import visit_stats
 from database import engine, Base
+
+from admin.goods import setup_goods_admin
 # from middleware.interaction_middleware import InteractionMiddleware
 from config import settings
 
@@ -70,7 +73,10 @@ def create_application() -> FastAPI:
     
     # Initialize database
     Base.metadata.create_all(bind=engine)
-    
+
+    # Setup admin interface
+    setup_goods_admin(app, engine)
+
     # Setup application components
     setup_routers(app)
     # setup_middleware(app)

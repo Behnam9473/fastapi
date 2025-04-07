@@ -6,24 +6,54 @@ from crud.base import CRUDBase
 from models.inventory.inventory import Customization, Inventory
 from models.order.cart import AnonymousCartTable, AuthenticatedCartTable, CartItemTable
 
-
-    
-
 class CRUDCart:
+    """
+    Provides CRUD operations for shopping carts, handling both authenticated and anonymous users.
+    
+    Attributes:
+        None
+    """
     def get_anonymous_cart(self, db: Session, session_id: UUID) -> Optional[AnonymousCartTable]:
-        """Get anonymous cart by session ID."""
+        """
+        Retrieve an anonymous user's shopping cart by their session ID.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            session_id (UUID): Unique session identifier for anonymous user
+            
+        Returns:
+            Optional[AnonymousCartTable]: The anonymous cart if found, None otherwise
+        """
         return db.query(AnonymousCartTable).filter(
             AnonymousCartTable.session_id == session_id
         ).first()
 
     def get_user_cart(self, db: Session, user_id: UUID) -> Optional[AuthenticatedCartTable]:
-        """Get authenticated cart by user ID."""
+        """
+        Retrieve an authenticated user's shopping cart by their user ID.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            user_id (UUID): Unique user identifier
+            
+        Returns:
+            Optional[AuthenticatedCartTable]: The authenticated cart if found, None otherwise
+        """
         return db.query(AuthenticatedCartTable).filter(
             AuthenticatedCartTable.user_id == user_id
         ).first()
 
     def create_anonymous_cart(self, db: Session, session_id: UUID) -> AnonymousCartTable:
-        """Create a new anonymous cart."""
+        """
+        Create a new shopping cart for an anonymous user.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            session_id (UUID): Unique session identifier for anonymous user
+            
+        Returns:
+            AnonymousCartTable: The newly created anonymous cart
+        """
         new_cart = AnonymousCartTable(
             items=[],
             session_id=session_id,
@@ -36,7 +66,16 @@ class CRUDCart:
         return new_cart
 
     def create_user_cart(self, db: Session, user_id: UUID) -> AuthenticatedCartTable:
-        """Create a new authenticated cart."""
+        """
+        Create a new shopping cart for an authenticated user.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            user_id (UUID): Unique user identifier
+            
+        Returns:
+            AuthenticatedCartTable: The newly created authenticated cart
+        """
         new_cart = AuthenticatedCartTable(
             user_id=user_id,
             items=[],
@@ -49,7 +88,22 @@ class CRUDCart:
         return new_cart
     
     def calcaulate_total_price(self, db: Session, product_id: int, quantity: int, customization_ids: list[int] = None) -> float:
-        """Calculate total price of a product with quantity and customizations."""
+        """
+        Calculate the total price for a product including quantity and customizations.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            product_id (int): ID of the product
+            quantity (int): Quantity of the product
+            customization_ids (list[int], optional): List of customization IDs. Defaults to None.
+            
+        Returns:
+            float: The calculated total price
+            
+        Raises:
+            HTTPException: 404 if product not found
+            HTTPException: 400 if product unavailable or invalid customizations
+        """
         inventory = db.query(Inventory).filter(Inventory.id == product_id).first()
         if not inventory:
             raise HTTPException(status_code=404, detail="Product not found")
@@ -84,7 +138,22 @@ class CRUDCart:
         return final_price
     
     def add_item(self, db: Session, cart_id: UUID, product_id: int, quantity: int, total_price: float) -> CartItemTable:
-        """Add item to cart and update cart totals."""
+        """
+        Add an item to the shopping cart and update cart totals.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            cart_id (UUID): ID of the cart (anonymous or authenticated)
+            product_id (int): ID of the product to add
+            quantity (int): Quantity of the product
+            total_price (float): Pre-calculated total price for the item
+            
+        Returns:
+            CartItemTable: The newly created cart item
+            
+        Raises:
+            HTTPException: 404 if cart not found
+        """
         # Check cart type and get cart
         anon_cart = db.query(AnonymousCartTable).filter(
             AnonymousCartTable.cart_id == cart_id
@@ -135,7 +204,20 @@ class CRUDCart:
         return new_item
 
     def convert_to_authenticated(self, db: Session, session_id: UUID, user_id: UUID) -> AuthenticatedCartTable:
-        """Convert anonymous cart to authenticated cart."""
+        """
+        Convert an anonymous cart to an authenticated cart when user logs in.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            session_id (UUID): Anonymous session ID
+            user_id (UUID): Authenticated user ID
+            
+        Returns:
+            AuthenticatedCartTable: The new authenticated cart
+            
+        Raises:
+            HTTPException: 404 if anonymous cart not found
+        """
         # Get anonymous cart
         anon_cart = self.get_anonymous_cart(db, session_id)
         if not anon_cart:
@@ -166,7 +248,17 @@ class CRUDCart:
         return user_cart
 
     def remove_item(self, db: Session, cart_id: UUID, item_id: int) -> bool:
-        """Remove item from cart and update totals."""
+        """
+        Remove an item from the cart and update cart totals.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            cart_id (UUID): ID of the cart (anonymous or authenticated)
+            item_id (int): ID of the item to remove
+            
+        Returns:
+            bool: True if item was removed successfully, False otherwise
+        """
         item = db.query(CartItemTable).filter(
             CartItemTable.id == item_id,
             (CartItemTable.cart_id == cart_id) | (CartItemTable.user_cart_id == cart_id)
@@ -188,7 +280,19 @@ class CRUDCart:
         return True
     
     def get_items(self, db: Session, cart_id: UUID) -> List[CartItemTable]:
-        """Get all items in a cart by cart ID."""
+        """
+        Retrieve all items in a cart with complete product details.
+        
+        Args:
+            db (Session): SQLAlchemy database session
+            cart_id (UUID): ID of the cart (anonymous or authenticated)
+            
+        Returns:
+            List[CartItemTable]: List of cart items with product information
+            
+        Raises:
+            HTTPException: 404 if cart not found or empty
+        """
             # Get cart items with product details
         items = (
             db.query(CartItemTable, Inventory)

@@ -41,10 +41,16 @@ def read_inbounds(
     Retrieve all inbound inventory records with pagination.
     
     Args:
-        skip (int): Number of records to skip
-        limit (int): Maximum number of records to return
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        skip (int): Number of records to skip (default: 0)
+        limit (int): Maximum number of records to return (default: 100)
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        List[InboundResponse]: List of inbound records with pagination applied
+    
+    Raises:
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     return inventory.get_inbounds(db=db, skip=skip, limit=limit)
@@ -59,11 +65,16 @@ def read_inbound(
     Retrieve a specific inbound inventory record by ID with its customizations.
     
     Args:
-        inbound_id (int): ID of the inbound record
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        inbound_id (int): ID of the inbound record to retrieve
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
     Returns:
         InboundResponse: Inbound record with associated customizations
+        
+    Raises:
+        HTTPException: 404 if inbound record not found
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     db_inbound = inventory.get_inbound(db=db, id=inbound_id)
@@ -86,8 +97,17 @@ def create_inbound(
     
     Args:
         inbound_data (InboundCreate): Inbound data to create
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        InboundResponse: Newly created inbound record
+        
+    Raises:
+        HTTPException: If user doesn't have admin permissions
+    
+    Note:
+        Automatically associates the inbound record with the current user as seller
     """
     check_admin_permissions(current_user)
     seller_name = current_user['username']
@@ -106,8 +126,15 @@ def update_inbound(
     Args:
         inbound_id (int): ID of the inbound record to update
         inbound_data (InboundUpdate): Updated inbound data
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        InboundResponse: Updated inbound record
+        
+    Raises:
+        HTTPException: 404 if inbound record not found
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     db_inbound = inventory.get_inbound(db=db, id=inbound_id)
@@ -125,13 +152,19 @@ def create_customization(
     current_user: dict = Depends(get_current_manager)
 ):
     """
-    Create a new customization for a specific good.
+    Create a new customization for a specific inventory item.
     
     Args:
-        inv_id (int): ID of the good
+        inv_id (int): ID of the inventory item to customize
         customization_data (CustomizationCreate): Customization data to create
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        CustomizationResponse: Newly created customization record
+        
+    Raises:
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     return inventory.create_customization(db=db, inv_id=inv_id, obj_in=customization_data)
@@ -145,14 +178,20 @@ def read_customizations(
     current_user: dict = Depends(get_current_manager)
 ):
     """
-    Retrieve all customizations for a specific good with pagination.
+    Retrieve all customizations for a specific inventory item with pagination.
     
     Args:
-        inv_id (int): ID of the good
-        skip (int): Number of records to skip
-        limit (int): Maximum number of records to return
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        inv_id (int): ID of the inventory item
+        skip (int): Number of records to skip (default: 0)
+        limit (int): Maximum number of records to return (default: 100)
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        List[CustomizationResponse]: List of customization records with pagination applied
+        
+    Raises:
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     return inventory.get_customizations(db=db, inv_id=inv_id, skip=skip, limit=limit)
@@ -165,13 +204,20 @@ def read_customization(
     current_user: dict = Depends(get_current_manager)
 ):
     """
-    Retrieve a specific customization by ID.
+    Retrieve a specific customization by ID for an inventory item.
     
     Args:
-        good_id (int): ID of the good
-        customization_id (int): ID of the customization
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        inv_id (int): ID of the inventory item
+        customization_id (int): ID of the customization to retrieve
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        CustomizationResponse: Requested customization record
+        
+    Raises:
+        HTTPException: 404 if customization not found
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     db_customization = inventory.get_customization(db=db, inv_id=inv_id, id=customization_id)
@@ -188,14 +234,21 @@ def update_customization(
     current_user: dict = Depends(get_current_manager)
 ):
     """
-    Update an existing customization.
+    Update an existing customization for an inventory item.
     
     Args:
-        good_id (int): ID of the good
+        inv_id (int): ID of the inventory item
         customization_id (int): ID of the customization to update
         customization_data (CustomizationCreate): Updated customization data
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        CustomizationResponse: Updated customization record
+        
+    Raises:
+        HTTPException: 404 if customization not found
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     db_customization = inventory.get_customization(db=db, inv_id=inv_id, id=customization_id)
@@ -210,15 +263,21 @@ def delete_customization(
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_manager)
 ):
-    
     """
-    Delete a customization.
+    Delete a customization for an inventory item.
     
     Args:
-        inv_id (int): ID of the good
+        inv_id (int): ID of the inventory item
         customization_id (int): ID of the customization to delete
-        db (Session): Database session
-        current_user (dict): Current authenticated user
+        db (Session): Database session dependency
+        current_user (dict): Current authenticated user from JWT token
+    
+    Returns:
+        CustomizationResponse: Deleted customization record
+        
+    Raises:
+        HTTPException: 404 if customization not found
+        HTTPException: If user doesn't have admin permissions
     """
     check_admin_permissions(current_user)
     db_customization = inventory.get_customization(db=db, inv_id=inv_id, id=customization_id)

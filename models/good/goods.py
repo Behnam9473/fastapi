@@ -16,8 +16,17 @@ data_type_enum = Enum("string", "integer", "float", "boolean", "list", "json", n
 # Utility function to generate SKU for goods
 def generate_sku(good):
     """
-    Generates a unique SKU (Stock Keeping Unit) for a good
-    Format: ZAR-{5_digit_hash}{3_digit_id}
+    Generates a unique SKU (Stock Keeping Unit) for a good.
+    
+    Args:
+        good (Good): The product object to generate SKU for
+        
+    Returns:
+        str: Generated SKU in format ZAR-{5_digit_hash}{3_digit_id}
+        
+    Example:
+        >>> generate_sku(good)
+        'ZAR-12345678'
     """
     # Prefix for all SKUs
     prefix = "ZAR"
@@ -41,6 +50,17 @@ def generate_sku(good):
 class Category(Base):
     """
     Category model for organizing goods with subcategories.
+    
+    Attributes:
+        id (int): Primary key
+        name (str): Unique category name
+        parent_id (int): Foreign key to parent category (nullable)
+        image (str): Path to category image
+        
+    Relationships:
+        goods: Related products in this category
+        children: Subcategories of this category
+        attribute_sets: Attribute sets associated with this category
     """
     __tablename__ = "category"
     __table_args__ = {'extend_existing': True}
@@ -62,7 +82,15 @@ class Category(Base):
 
     @property
     def is_leaf(self):
-        """Check if the category is a leaf node (has no children)"""
+        """
+        Check if the category is a leaf node (has no children).
+        
+        Returns:
+            bool: True if category has no children, False otherwise
+            
+        Raises:
+            ValueError: If category is not bound to a session
+        """
         session = object_session(self)
         if session is None:
             raise ValueError("Category is not bound to a session.")
@@ -74,18 +102,43 @@ class Category(Base):
 
     @property
     def get_hierarchy(self):
-        """Get the full hierarchy path of the category"""
+        """
+        Get the full hierarchical path of the category.
+        
+        Returns:
+            str: Full path from root to current category
+            
+        Example:
+            'Parent > Child > Current'
+        """
         if self.parent:
             return f"{self.parent.get_hierarchy} > {self.name}"
         return self.name
 
     @classmethod
     def get_leaf_categories(cls, db):
-        """Get all leaf categories (categories with no children)"""
+        """
+        Get all leaf categories (categories with no children).
+        
+        Args:
+            db (Session): Database session
+            
+        Returns:
+            List[Category]: List of leaf categories
+        """
         return db.query(cls).filter(~cls.id.in_(
             db.query(cls.parent_id).filter(cls.parent_id.isnot(None))
         )).all()
     def get_ancestors(self, db: Session):
+        """
+        Get all ancestor categories of this category.
+        
+        Args:
+            db (Session): Database session
+            
+        Returns:
+            List[Category]: List of ancestor categories ordered from parent to root
+        """
         ancestors = []
         current = self
         while current.parent_id is not None:
@@ -95,8 +148,28 @@ class Category(Base):
         return ancestors
 class Good(Base):
     """
-    Good (Product) model with detailed product information
-    Includes relationships with Category, Color, and Inventory
+    Good (Product) model with detailed product information.
+    
+    Attributes:
+        id (int): Primary key
+        name (str): Product name
+        description (str): Product description
+        weight (float): Product weight
+        dimensions (length, height, width): Product dimensions
+        sku (str): Unique stock keeping unit
+        tenant_id (UUID): Tenant identifier
+        is_validated (bool): Validation status
+        superuser_description (str): Admin notes
+        status (str): Product status (pending/approved/declined)
+        images (JSON): List of product image paths
+        created_at (DateTime): Creation timestamp
+        updated_at (DateTime): Last update timestamp
+        
+    Relationships:
+        category: Product category
+        colors: Available colors
+        inventories: Stock information
+        attribute_values: Product specifications
     """
     __tablename__ = "good"
     __table_args__ = {'extend_existing': True}
@@ -137,13 +210,28 @@ class Good(Base):
 
     @property
     def generate_and_set_sku(self):
-        """Generates and sets SKU if status is approved and SKU doesn't exist"""
+        """
+        Generates and sets SKU if product is approved and SKU doesn't exist.
+        
+        Returns:
+            str: Generated SKU or existing SKU
+            
+        Note:
+            Only generates SKU when status is 'approved' and sku is None
+        """
         if self.status == "approved" and not self.sku:
             self.sku = generate_sku(self)
         return self.sku
 
     def update_status(self):
-        """Updates the status based on validation and superuser description"""
+        """
+        Updates product status based on validation and admin notes.
+        
+        Status transitions:
+        - is_validated=True → 'approved'
+        - !is_validated and superuser_description → 'declined'
+        - Otherwise → 'pending'
+        """
         if self.is_validated:
             self.status = "approved"
         elif not self.is_validated and self.superuser_description:
@@ -154,7 +242,16 @@ class Good(Base):
 # New Models for Product Specifications
 class AttributeSet(Base):
     """
-    Represents a group of attributes (specifications) associated with a category.
+    Group of product specifications associated with a category.
+    
+    Attributes:
+        id (int): Primary key
+        name (str): Attribute set name
+        category_id (int): Related category ID
+        
+    Relationships:
+        category: Parent category
+        attributes: Individual attributes in this set
     """
     __tablename__ = "attribute_set"
     __table_args__ = {'extend_existing': True}
@@ -172,7 +269,18 @@ class AttributeSet(Base):
 
 class Attribute(Base):
     """
-    Represents a specific attribute (specification) within an attribute set.
+    Individual product specification within an attribute set.
+    
+    Attributes:
+        id (int): Primary key
+        name (str): Attribute name
+        attribute_set_id (int): Parent attribute set ID
+        data_type (Enum): Data type (string/integer/float/boolean/list/json)
+        unit (str): Measurement unit if applicable
+        
+    Relationships:
+        attribute_set: Parent attribute set
+        values: Product attribute values
     """
     __tablename__ = "attribute"
     __table_args__ = {'extend_existing': True}
@@ -192,7 +300,16 @@ class Attribute(Base):
 
 class ProductAttributeValue(Base):
     """
-    Represents the value of a specific attribute for a particular good.
+    Value of a specific attribute for a product.
+    
+    Attributes:
+        good_id (int): Related product ID (composite primary key)
+        attribute_id (int): Related attribute ID (composite primary key)
+        value_*: Value fields for different data types
+        
+    Relationships:
+        good: Related product
+        attribute: Related attribute
     """
     __tablename__ = "product_attribute_value"
     __table_args__ = {'extend_existing': True}

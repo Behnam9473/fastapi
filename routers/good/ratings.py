@@ -6,101 +6,77 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 # Local application imports
-# Database
 from database import get_db
-
-# Models
-from models.good.ratings import ProductRating
-from models.inventory.inventory import Inventory
 from models.users.users import RoleEnum
-
-# Schemas
-from schemas.good.ratings import (
-    RatingCreate,
-    RatingUpdate, 
-    RatingResponse
-)
-
-# Authentication utilities
+from schemas.good.ratings import RatingCreate, RatingUpdate, RatingResponse
 from utils.auth import get_current_user
+from crud.good.rating import rating
 
 router = APIRouter(prefix="/ratings", tags=["Ratings"])
+"""
+Ratings API Router
+
+This router handles all operations related to product ratings including:
+- Creating new ratings
+- Retrieving product ratings
+- Updating existing ratings
+- Deleting ratings
+
+All endpoints require authentication except for retrieving product ratings.
+"""
 
 @router.post("/{inventory_id}", response_model=RatingResponse)
 def create_rating(
     inventory_id: int,
-    rating: RatingCreate,
+    rating_in: RatingCreate,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Create a new rating for a product"""
-    # Check if user is a customer
+    """
+    Create a new product rating
+    
+    Args:
+        inventory_id (int): ID of the inventory item being rated
+        rating_in (RatingCreate): Rating data including score and optional comment
+        
+    Returns:
+        RatingResponse: The created rating with all details
+        
+    Raises:
+        HTTPException 403: If user is not a customer
+        HTTPException 400: If rating data is invalid
+    """
     if current_user['role'] == RoleEnum.CUSTOMER:
         raise HTTPException(
             status_code=403,
             detail="Only customers can rate products"
         )
     
-    # Check if inventory exists and is published
-    inventory = db.query(Inventory).filter(
-        Inventory.id == inventory_id,
-        Inventory.published == True
-    ).first()
-    
-    if not inventory:
-        raise HTTPException(
-            status_code=404,
-            detail="Product not found or not available for rating"
+    try:
+        return rating.create(
+            db=db,
+            obj_in=rating_in,
+            customer_id=current_user['user_id'],
+            inventory_id=inventory_id
         )
-    
-    # Check if user has already rated this product
-    existing_rating = db.query(ProductRating).filter(
-        ProductRating.customer_id == current_user['user_id'],
-        ProductRating.inventory_id == inventory_id
-    ).first()
-    
-    if existing_rating:
-        raise HTTPException(
-            status_code=400,
-            detail="You have already rated this product"
-        )
-    
-    # Create new rating
-    db_rating = ProductRating(
-        customer_id=current_user['user_id'],
-        inventory_id=inventory_id,
-        rating=rating.rating,
-        comment=rating.comment
-    )
-    
-    db.add(db_rating)
-    db.commit()
-    db.refresh(db_rating)
-    
-    return db_rating
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/product/{inventory_id}", response_model=List[RatingResponse])
 def get_product_ratings(
     inventory_id: int,
     db: Session = Depends(get_db)
 ):
-    """Get all ratings for a specific product"""
-    inventory = db.query(Inventory).filter(
-        Inventory.id == inventory_id,
-        Inventory.published == True
-    ).first()
+    """
+    Get all ratings for a product
     
-    if not inventory:
-        raise HTTPException(
-            status_code=404,
-            detail="Product not found or not available"
-        )
-    
-    ratings = db.query(ProductRating).filter(
-        ProductRating.inventory_id == inventory_id
-    ).all()
-    
-    return ratings
+    Args:
+        inventory_id (int): ID of the inventory item
+        
+    Returns:
+        List[RatingResponse]: All ratings for the specified product
+    """
+    return rating.get_by_inventory(db, inventory_id)
 
 @router.put("/{rating_id}", response_model=RatingResponse)
 def update_rating(
@@ -109,35 +85,39 @@ def update_rating(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Update an existing rating"""
+    """
+    Update an existing rating
+    
+    Args:
+        rating_id (int): ID of the rating to update
+        rating_update (RatingUpdate): Updated rating data
+        
+    Returns:
+        RatingResponse: The updated rating with all details
+        
+    Raises:
+        HTTPException 403: If user is not a customer
+        HTTPException 404: If rating doesn't exist or user doesn't own it
+    """
     if current_user['role'] == RoleEnum.CUSTOMER:
         raise HTTPException(
             status_code=403,
             detail="Only customers can update ratings"
         )
     
-    # Get existing rating
-    db_rating = db.query(ProductRating).filter(
-        ProductRating.id == rating_id,
-        ProductRating.customer_id == current_user['id']
-    ).first()
-    
-    if not db_rating:
+    # Verify ownership
+    existing_rating = rating.get_user_rating(
+        db, 
+        customer_id=current_user['id'], 
+        inventory_id=rating_id
+    )
+    if not existing_rating:
         raise HTTPException(
             status_code=404,
             detail="Rating not found or you don't have permission to update it"
         )
     
-    # Update rating fields
-    if rating_update.rating is not None:
-        db_rating.rating = rating_update.rating
-    if rating_update.comment is not None:
-        db_rating.comment = rating_update.comment
-    
-    db.commit()
-    db.refresh(db_rating)
-    
-    return db_rating
+    return rating.update(db, id=rating_id, obj_in=rating_update)
 
 @router.delete("/{rating_id}")
 def delete_rating(
@@ -145,26 +125,36 @@ def delete_rating(
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Delete a rating"""
+    """
+    Delete a rating
+    
+    Args:
+        rating_id (int): ID of the rating to delete
+        
+    Returns:
+        dict: Success message
+        
+    Raises:
+        HTTPException 403: If user is not a superuser
+        HTTPException 404: If rating doesn't exist or user doesn't own it
+    """
     if current_user['role'] == RoleEnum.SUPERUSER:
         raise HTTPException(
             status_code=403,
             detail="Only SUPERUSER can delete ratings"
         )
     
-    # Get existing rating
-    db_rating = db.query(ProductRating).filter(
-        ProductRating.id == rating_id,
-        ProductRating.customer_id == current_user['id']
-    ).first()
-    
-    if not db_rating:
+    # Verify ownership
+    existing_rating = rating.get_user_rating(
+        db, 
+        customer_id=current_user['id'], 
+        inventory_id=rating_id
+    )
+    if not existing_rating:
         raise HTTPException(
             status_code=404,
             detail="Rating not found or you don't have permission to delete it"
         )
     
-    db.delete(db_rating)
-    db.commit()
-    
-    return {"message": "Rating deleted successfully"} 
+    rating.delete(db, id=rating_id)
+    return {"message": "Rating deleted successfully"}

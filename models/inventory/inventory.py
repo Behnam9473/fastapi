@@ -13,6 +13,20 @@ inventory_customization = Table(
 )
 
 class Customization(Base):
+    """
+    Customization model represents product customization options.
+    
+    Attributes:
+        id: Primary key
+        name: Name of the customization option
+        images: List of image URLs for this customization
+        alternative_text: List of alternative texts for accessibility
+        prices: List of prices for different customization options
+        inv_id: Foreign key to Inventory
+        inventories: Many-to-many relationship with Inventory
+        created_at: Timestamp when record was created
+        updated_at: Timestamp when record was last updated
+    """
     __tablename__ = "customization"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -32,6 +46,25 @@ class Customization(Base):
 
 
 class Inventory(Base):
+    """
+    Inventory model represents product inventory items.
+    
+    Attributes:
+        id: Primary key
+        good_id: Foreign key to Good table
+        good: Relationship to Good model
+        ratings: Relationship to ProductRating model
+        seller_name: Name of the seller
+        tenant_id: Tenant identifier
+        purchase_price: Purchase price of the item
+        sale_price: Selling price of the item
+        file: AR file path or URL
+        qty: Available quantity
+        published: Whether item is published for sale
+        customizations: Many-to-many relationship with Customization
+        created_at: Timestamp when record was created
+        updated_at: Timestamp when record was last updated
+    """
     __tablename__ = "inventory"
     id = Column(Integer, primary_key=True, index=True)
     
